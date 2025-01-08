@@ -10,8 +10,10 @@ from typing import Optional
 import os
 import yaml
 import shutil
+import random
 from pycocotools.coco import COCO
-import json
+from pylabel import importer
+
 
 """
 Module with functions to transform datasets from one format to another and do some operations it.
@@ -226,69 +228,88 @@ def det2_splitter(annotations_path : str,
         print("Saved {} entries in {} and {} in {}".format(len(x), store_train_path, len(y), store_val_path))
 
 
+
 def coco2yolo(
-        coco_annotation_path : str,
-        coco_image_folder_path : str,
-        output_dir : str,
-        copy_images : bool = True,
-        yolo_type : str = "yolov8", # 'yolov5' or 'yolov8' TODO: add 'yolov5
-        split : bool = False,
-        split_ratio : float = 0.8,
-        augment : bool = False
-    ):
-    """
-    Convert COCO dataset to YOLO format
-
-    Args:
-        coco_annotation_path (str): Path to the COCO annotations file.
-        coco_image_folder_path (str): Path to the COCO images folder.
-        output_dir (str): Output directory.
-        copy_images (bool): Copy images to the output directory. Default is True.
-                            If it is False, only the annotations will be created.
-        yolo_type (str): YOLO format type. Default is 'yolov8'. To convert the folder organisation either to YoLoV5 or YoLoV8 format.
-        split (bool): Split the dataset into train and val subsets. Default is False.
-                    By default, the entire dataset will be converted to YOLO format in one folder of annotations.
-        split_ratio (float): Size of the train subset. Default is 0.8.
-        augment (bool): Augment the dataset using albumentations. Default is False.
-    """
-    from pylabel import importer
-
+        coco_annotation_path: str,
+        coco_image_folder_path: str,
+        output_dir: str,
+        copy_images: bool = True,
+        yolo_type: str = "yolov8",
+        split: bool = False,
+        split_ratio: float = 0.8,
+        augment: bool = False
+):
     os.makedirs(output_dir, exist_ok=True)
 
-    if split==True:
-        det2_splitter(coco_annotation_path, 'train_annotations.json', 'val_annotations.json', split_ratio)
-        
-        for split in ['train', 'val']:
-            coco2yolo(
-                split+'_annotations.json',
-                coco_image_folder_path,
-                output_dir+"/"+split+"/",
-                copy_images=copy_images,
-                yolo_type=yolo_type,
-                split=False,
-            )
-            os.remove(split+'_annotations.json')
+    # Step 1: Load COCO annotations and identify annotated and unannotated images
+    with open(coco_annotation_path, 'r') as f:
+        coco_data = json.load(f)
 
+    annotated_image_ids = {ann['image_id'] for ann in coco_data['annotations']}
+    all_images = {img['id']: img for img in coco_data['images']}
+    unannotated_image_ids = set(all_images.keys()) - annotated_image_ids
 
-        with open(os.path.join(output_dir+"/train/dataset.yaml"), 'r') as file:
-            data=yaml.safe_load(file)
-        data['train'] = "../train/images"
-        data['val'] = "../val/images"
-        for split in ['train', 'val']:
-            os.remove(os.path.join(output_dir,f"{split}/dataset.yaml"))
+    # Step 2: Prepare a list of all image IDs and shuffle them for randomness
+    all_image_ids = list(all_images.keys())
+    random.shuffle(all_image_ids)
+    
+    # Determine split point based on split_ratio
+    split_index = int(len(all_image_ids) * split_ratio)
+    train_ids = all_image_ids[:split_index]
+    val_ids = all_image_ids[split_index:]
 
-        new_yaml_dir = output_dir+"/data.yaml"
-        #os.makedirs(new_yaml_dir,exist_ok=True)
-        with open(new_yaml_dir, 'w') as file:
-            yaml.dump(data, file,default_flow_style=False)
+    # Step 3: Convert and organize each split separately
+    for split_type, image_ids in zip(['train', 'val'], [train_ids, val_ids]):
+        split_dir = os.path.join(output_dir, split_type)
+        labels_dir = os.path.join(split_dir, "labels")
+        images_dir = os.path.join(split_dir, "images")
+        os.makedirs(labels_dir, exist_ok=True)
+        os.makedirs(images_dir, exist_ok=True)
 
+        # Temporary split annotations for images with annotations
+        split_annotations = [ann for ann in coco_data['annotations'] if ann['image_id'] in image_ids]
+        temp_annotation_path = f"{split_type}_annotations.json"
+        with open(temp_annotation_path, 'w') as f:
+            json.dump({
+                "images": [all_images[img_id] for img_id in image_ids],
+                "annotations": split_annotations,
+                "categories": coco_data['categories']
+            }, f)
 
+        # Convert annotated images
+        dataset = importer.ImportCoco(temp_annotation_path, coco_image_folder_path)
+        dataset.export.ExportToYoloV5(labels_dir, copy_images=False, cat_id_index=0)
 
-    else:
-        dataset = importer.ImportCoco(coco_annotation_path, coco_image_folder_path)
-        dataset.export.ExportToYoloV5(output_dir+"/labels/", 
-                                      copy_images=copy_images,
-                                      cat_id_index=0)
+        # Clean up temporary file
+        os.remove(temp_annotation_path)
+
+        # Step 4: Process unannotated images in the current split
+        for img_id in image_ids:
+            image_info = all_images[img_id]
+            image_filename = image_info['file_name']
+
+            # Create empty label file for unannotated images
+            if img_id in unannotated_image_ids:
+                label_path = os.path.join(labels_dir, os.path.splitext(image_filename)[0] + ".txt")
+                open(label_path, 'w').close()  # Create empty annotation file
+
+            # Copy the image if needed
+            if copy_images:
+                src_path = os.path.join(coco_image_folder_path, image_filename)
+                dest_path = os.path.join(images_dir, image_filename)
+                if os.path.exists(src_path):
+                    shutil.copy(src_path, dest_path)
+
+    # Step 5: Create unified data.yaml for YOLO
+    data_yaml = {
+        'train': os.path.join(output_dir, 'train', 'images'),
+        'val': os.path.join(output_dir, 'val', 'images'),
+        'nc': len(coco_data['categories']),
+        'names': [category['name'] for category in coco_data['categories']]
+    }
+    with open(os.path.join(output_dir, 'data.yaml'), 'w') as f:
+        yaml.dump(data_yaml, f, default_flow_style=False)
+
         
 
 def merge_yaml(data_folder,train_name:str="train",valid_name:str="valid",augment:bool=False):
