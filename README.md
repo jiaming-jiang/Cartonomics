@@ -1,12 +1,7 @@
 
 # Cartonomics
 This folder allows you to train/finetune models for symbol detection on old maps, primarily focusing on Cassini maps. Here, you will find all the processes to prepare and augment your data, as well as train, evaluate, and test your models.
-## Table of Contents
-- [Project Structure](#project-structure)
-- [Getting Started](#getting-started)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Contact](#contact)
+
 ## Project Structure
 The folder is organized as follows:
 ```plaintext
