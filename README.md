@@ -1,23 +1,25 @@
 
 # Cartonomics
-This folder allows you to train/finetune models for symbol detection on old maps, primarily focusing on Cassini maps. Here, you will find all the processes to prepare and augment your data, as well as train, evaluate, and test your models.
+For final deliverables, please find the project report in the `Report` folder; main scripts in the `notebooks` folder; fine-tuned model in the `outputs` folder; and the posterior classification results in the `Clusters` folder.
+
+Due to the large size of the datasets (including the multiple crop-augmented ones), it is not feasible to upload it here.
 
 ## Project Structure
-The folder is organized as follows:
+The repository is organized as follows:
 ```plaintext
 ├── notebooks/                      # Folder to run notebooks 
 │   ├── utils/                      # Utilities functions for the notebooks
-│   ├── notebook1.ipynb
+│   ├── yolo_training.ipynb         # Tuning experiments on detection
+│   ├── clustering.ipynb            # Posterior classification
 │   └── ...
+├── Clusters/                       # Complete mosaics of clustering results
+├── Report/                         # Final report and source zip file
+├── outputs/                        # Best model weight and training logs
+│
+│
 ├── models/                         # Folder containing modules for the training of different models
-│   ├── detectron2/
-│   ├── detr/
-│   └── yolo/
-├── Clusters/                       # Folder containing complete mosaics of clustering results
 ├── datasets/                       # Folder containing modules to prepare/augment the datasets
 ├── data/                           # Folder containing the datasets
-├── outputs/                        # Folder with the weights of the different models
-├── runs/                           # Folder with training/validation logs
 ├── tests/                          # Folder for testing different implementations
 ├───── requirements.txt
 └───── README.md
