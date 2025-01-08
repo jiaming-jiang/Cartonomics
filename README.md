@@ -1,8 +1,10 @@
 
 # Cartonomics
-For final deliverables, please find the project report in the `Report` folder; main scripts in the `notebooks` folder; fine-tuned model in the `outputs` folder; and the posterior classification results in the `Clusters` folder.
+This project is based on the previous work from [COCASS](https://github.com/CRH-EHESS/cocass-benchmarking/tree/main) and this repository is forked from it. 
 
-Due to the large size of the datasets (including the multiple crop-augmented ones), it is not feasible to upload it here.
+For our final deliverables, please find the project report in the `Report` folder; main scripts in the `notebooks` folder; fine-tuned model in the `outputs` folder; and the posterior classification results in the `Clusters` folder.
+
+Due to the large size of the datasets (including the multiple crop-augmented ones), we could not upload them here.
 
 ## Project Structure
 The repository is organized as follows:
@@ -20,7 +22,6 @@ The repository is organized as follows:
 ├── models/                         # Folder containing modules for the training of different models
 ├── datasets/                       # Folder containing modules to prepare/augment the datasets
 ├── data/                           # Folder containing the datasets
-├── tests/                          # Folder for testing different implementations
 ├───── requirements.txt
 └───── README.md
 ```
